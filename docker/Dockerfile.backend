@@ -1,0 +1,35 @@
+# AI Model Forge - Backend Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv for fast dependency resolution
+RUN pip install --no-cache-dir uv
+
+# Copy project files
+COPY runtime_sdk /app/runtime_sdk
+COPY backend /app/backend
+COPY storage /app/storage
+
+# Install dependencies into container
+WORKDIR /app/backend
+RUN uv pip install --system \
+    fastapi "uvicorn[standard]" pydantic sqlalchemy python-multipart \
+    numpy pandas scikit-learn pillow pytest requests openpyxl pyarrow joblib httpx \
+    torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Install runtime SDK
+WORKDIR /app/runtime_sdk
+RUN uv pip install --system -e .
+
+WORKDIR /app/backend
+ENV PYTHONPATH=/app/backend:/app/runtime_sdk
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
